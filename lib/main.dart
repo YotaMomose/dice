@@ -106,45 +106,48 @@ class _DicePageState extends State<DicePage> {
 
   /// 指定された面番号の強化ボーナス値を入力するダイアログを表示する。
   Future<void> _showBonusDialog(int faceNumber) async {
-    final controller = TextEditingController(text: '0');
+    int selectedBonus = 1;
 
     try {
       final bonusAmount = await showDialog<int>(
         context: context,
         barrierDismissible: false,
         builder: (BuildContext context) {
-          return WillPopScope(
-            onWillPop: () async => false,
-            child: AlertDialog(
-              title: Text('面$faceNumber の強化値を入力'),
-              content: TextField(
-                controller: controller,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: '追加するボーナス値',
-                  hintText: '1〜3を推奨',
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              return WillPopScope(
+                onWillPop: () async => false,
+                child: AlertDialog(
+                  title: Text('面$faceNumber の強化値を選択'),
+                  content: SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment(value: 1, label: Text('+1')),
+                      ButtonSegment(value: 2, label: Text('+2')),
+                      ButtonSegment(value: 3, label: Text('+3')),
+                    ],
+                    selected: {selectedBonus},
+                    onSelectionChanged: (Set<int> newSelection) {
+                      setDialogState(() => selectedBonus = newSelection.first);
+                    },
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('キャンセル'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, selectedBonus),
+                      child: const Text('決定'),
+                    ),
+                  ],
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('キャンセル'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    final input = int.tryParse(controller.text) ?? 0;
-                    Navigator.pop(context, input > 0 ? input : null);
-                  },
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
+              );
+            },
           );
         },
       );
 
-      // ダイアログ閉閉後、Future.delayed で十分に遅延させてから setState を呼ぶ
-      if (bonusAmount != null && bonusAmount > 0 && mounted) {
+      if (bonusAmount != null && mounted) {
         await Future.delayed(const Duration(milliseconds: 100));
         if (mounted) {
           setState(() {
@@ -152,8 +155,8 @@ class _DicePageState extends State<DicePage> {
           });
         }
       }
-    } finally {
-      controller.dispose();
+    } catch (e) {
+      // エラーハンドリング
     }
   }
 
