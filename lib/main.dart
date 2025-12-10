@@ -26,6 +26,7 @@ class MyApp extends StatelessWidget {
 /// 画面中央にサイコロ（四角＋数字）を表示する StatefulWidget。
 /// タップ時に高速で数字を切り替える演出を行い、最後に確定値を表示する。
 /// ボタンで面数を切り替え可能。
+/// 強化ボタンで各面にボーナス値を追加可能。
 class DicePage extends StatefulWidget {
   const DicePage({super.key});
 
@@ -62,17 +63,15 @@ class _DicePageState extends State<DicePage> {
   /// サイコロを初期化する。
   void _initializeDice() {
     _dice = Dice(FaceCount(allowedFaces[_faceIndex]));
-    _displayValue = _dice.current.value;
+    _displayValue = _dice.current.effectiveValue;
   }
 
   /// 面数を増やす。リスト最後に達したら最初に戻る。
   void _increaseFaces() {
     setState(() {
-      /// _faceIndex = 0  →  (0 + 1) % 7 = 1  →  8面
-      /// _faceIndex = 1  →  (1 + 1) % 7 = 2  →  10面
-      /// _faceIndex = 2  →  (2 + 1) % 7 = 3  →  12面
       _faceIndex = (_faceIndex + 1) % allowedFaces.length;
       _initializeDice();
+      _displayValue = null; // 表示値もリセット
     });
   }
 
@@ -105,6 +104,59 @@ class _DicePageState extends State<DicePage> {
     }
   }
 
+  /// 指定された面番号の強化ボーナス値を入力するダイアログを表示する。
+  Future<void> _showBonusDialog(int faceNumber) async {
+    final controller = TextEditingController(text: '0');
+
+    try {
+      final bonusAmount = await showDialog<int>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return WillPopScope(
+            onWillPop: () async => false,
+            child: AlertDialog(
+              title: Text('面$faceNumber の強化値を入力'),
+              content: TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: '追加するボーナス値',
+                  hintText: '1〜3を推奨',
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('キャンセル'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final input = int.tryParse(controller.text) ?? 0;
+                    Navigator.pop(context, input > 0 ? input : null);
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      // ダイアログ閉閉後、Future.delayed で十分に遅延させてから setState を呼ぶ
+      if (bonusAmount != null && bonusAmount > 0 && mounted) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (mounted) {
+          setState(() {
+            _dice.addBonus(faceNumber, bonusAmount);
+          });
+        }
+      }
+    } finally {
+      controller.dispose();
+    }
+  }
+
   // サイコロをタップしたときの処理。アニメーションを行い、最後に dice.roll() で確定する。
   Future<void> _onTap() async {
     if (_isRolling) return;
@@ -118,7 +170,7 @@ class _DicePageState extends State<DicePage> {
     for (int i = 0; i < frames; i++) {
       setState(() {
         _displayValue =
-            _dice.faces[_random.nextInt(_dice.faces.length)].value;
+            _dice.faces[_random.nextInt(_dice.faces.length)].effectiveValue;
       });
       await Future.delayed(frameDelay);
     }
@@ -126,7 +178,7 @@ class _DicePageState extends State<DicePage> {
     // 最終的に dice.roll() を呼んで current を更新し、表示を確定する。
     final result = _dice.roll();
     setState(() {
-      _displayValue = result.value;
+      _displayValue = result;
     });
 
     // 短い余韻（任意）。不要ならコメントアウト可。
@@ -177,7 +229,7 @@ class _DicePageState extends State<DicePage> {
                     ],
                   ),
                   child: Text(
-                    '${_displayValue ?? _dice.current.value}',
+                    '${_displayValue ?? _dice.current.effectiveValue}',
                     semanticsLabel: '現在の出目',
                     style: TextStyle(
                       fontSize: 48,
@@ -186,6 +238,27 @@ class _DicePageState extends State<DicePage> {
                     ),
                   ),
                 ),
+              ),
+            ),
+          ),
+          // 強化ボタン群
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Wrap(
+              spacing: 4,
+              children: List.generate(
+                currentFaces,
+                (index) {
+                  final faceNumber = index + 1;
+                  final bonus = _dice.getBonus(faceNumber);
+                  return ElevatedButton(
+                    key: ValueKey('bonus_button_$faceNumber'),
+                    onPressed: () => _showBonusDialog(faceNumber),
+                    child: Text(
+                      bonus > 0 ? '[$faceNumber]+$bonus' : '[$faceNumber]',
+                    ),
+                  );
+                },
               ),
             ),
           ),
