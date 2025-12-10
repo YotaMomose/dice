@@ -115,32 +115,31 @@ class _DicePageState extends State<DicePage> {
         builder: (BuildContext context) {
           return StatefulBuilder(
             builder: (context, setDialogState) {
-              return WillPopScope(
-                onWillPop: () async => false,
-                child: AlertDialog(
-                  title: Text('面$faceNumber の強化値を選択'),
-                  content: SegmentedButton<int>(
-                    segments: const [
-                      ButtonSegment(value: 1, label: Text('+1')),
-                      ButtonSegment(value: 2, label: Text('+2')),
-                      ButtonSegment(value: 3, label: Text('+3')),
-                    ],
-                    selected: {selectedBonus},
-                    onSelectionChanged: (Set<int> newSelection) {
-                      setDialogState(() => selectedBonus = newSelection.first);
-                    },
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('キャンセル'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, selectedBonus),
-                      child: const Text('決定'),
-                    ),
+              // WillPopScope を削除（非推奨のため）
+              // barrierDismissible: false にして外側タップで閉じないようにしている。
+              return AlertDialog(
+                title: Text('面$faceNumber の強化値を選択'),
+                content: SegmentedButton<int>(
+                  segments: const [
+                    ButtonSegment(value: 1, label: Text('+1')),
+                    ButtonSegment(value: 2, label: Text('+2')),
+                    ButtonSegment(value: 3, label: Text('+3')),
                   ],
+                  selected: {selectedBonus},
+                  onSelectionChanged: (Set<int> newSelection) {
+                    setDialogState(() => selectedBonus = newSelection.first);
+                  },
                 ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('キャンセル'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, selectedBonus),
+                    child: const Text('決定'),
+                  ),
+                ],
               );
             },
           );
