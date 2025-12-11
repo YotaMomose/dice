@@ -44,6 +44,10 @@ class _DicePageState extends State<DicePage> {
   // サイコロインスタンス
   late Dice _dice;
 
+  // 各面番号ごとの強化値を保持するマップ。面数変更後も値を引き継ぐ。
+  // キー: 面番号（1～20）、値: ボーナス値
+  final Map<int, int> _bonusHistory = {};
+
   // 表示用の一時的な値。initState で初期化するが、念のため nullable にして
   // ビルド時には _dice.current.value をフォールバックとして使う（LateError 回避）。
   int? _displayValue;
@@ -60,14 +64,28 @@ class _DicePageState extends State<DicePage> {
     _initializeDice();
   }
 
-  /// サイコロを初期化する。
+  /// サイコロを初期化する。強化値履歴から該当する面のボーナスを復元する。
   void _initializeDice() {
     _dice = Dice(FaceCount(allowedFaces[_faceIndex]));
+
+    // 現在の面数に対応する面の強化値を履歴から復元
+    for (int faceNumber = 1; faceNumber <= allowedFaces[_faceIndex]; faceNumber++) {
+      final bonus = _bonusHistory[faceNumber] ?? 0;
+      if (bonus > 0) {
+        _dice.addBonus(faceNumber, bonus);
+      }
+    }
+
     _displayValue = _dice.current.effectiveValue;
   }
 
-  /// 面数を増やす。リスト最後に達したら最初に戻る。
+  /// 面数を増やす。リスト最後に達したら最初に戻る。最大面数（20）に達したら増やさない。
   void _increaseFaces() {
+    // 最大面数に達していれば何もしない
+    if (_faceIndex >= allowedFaces.length - 1) {
+      return;
+    }
+
     setState(() {
       _faceIndex = (_faceIndex + 1) % allowedFaces.length;
       _initializeDice();
@@ -77,6 +95,11 @@ class _DicePageState extends State<DicePage> {
 
   /// 面数変更の確認ダイアログを表示する。
   Future<void> _showFaceChangeDialog() async {
+    // 最大面数に達していれば変更不可
+    if (_faceIndex >= allowedFaces.length - 1) {
+      return;
+    }
+
     final nextFaces = allowedFaces[(_faceIndex + 1) % allowedFaces.length];
 
     final shouldChange = await showDialog<bool>(
@@ -84,7 +107,7 @@ class _DicePageState extends State<DicePage> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('面数を変更しますか？'),
-          content: Text('$nextFaces 面ダイスに変更します。'),
+          content: Text('$nextFaces 面ダイスに変更します。\n現在の強化値は引き継がれます。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -115,8 +138,6 @@ class _DicePageState extends State<DicePage> {
         builder: (BuildContext context) {
           return StatefulBuilder(
             builder: (context, setDialogState) {
-              // WillPopScope を削除（非推奨のため）
-              // barrierDismissible: false にして外側タップで閉じないようにしている。
               return AlertDialog(
                 title: Text('面$faceNumber の強化値を選択'),
                 content: SegmentedButton<int>(
@@ -151,6 +172,8 @@ class _DicePageState extends State<DicePage> {
         if (mounted) {
           setState(() {
             _dice.addBonus(faceNumber, bonusAmount);
+            // 強化値の履歴に記録（面数変更後も引き継ぐため）
+            _bonusHistory[faceNumber] = (_bonusHistory[faceNumber] ?? 0) + bonusAmount;
           });
         }
       }
@@ -193,6 +216,7 @@ class _DicePageState extends State<DicePage> {
   Widget build(BuildContext context) {
     final size = 160.0;
     final currentFaces = allowedFaces[_faceIndex];
+    final isMaxFaces = _faceIndex >= allowedFaces.length - 1;
 
     return Scaffold(
       appBar: AppBar(
@@ -264,12 +288,16 @@ class _DicePageState extends State<DicePage> {
               ),
             ),
           ),
-          // 下部：面数変更ボタン
+          // 下部：面数変更ボタン（最大面数に達したら非活性）
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: ElevatedButton(
-              onPressed: _showFaceChangeDialog,
-              child: Text('面数を変更 → ${allowedFaces[(_faceIndex + 1) % allowedFaces.length]}面'),
+              onPressed: isMaxFaces ? null : _showFaceChangeDialog,
+              child: Text(
+                isMaxFaces
+                    ? '最大面数に到達しました'
+                    : '面数を変更 → ${allowedFaces[(_faceIndex + 1) % allowedFaces.length]}面',
+              ),
             ),
           ),
         ],
