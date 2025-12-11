@@ -125,7 +125,7 @@ class _DicePageState extends State<DicePage> {
     final shouldChange = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
+        final dialog = AlertDialog(
           title: Text('プレイヤー$playerNumber: 面数を変更しますか？'),
           content: Text('$nextFaces 面ダイスに変更します。\n現在の強化値は引き継がれます。'),
           actions: [
@@ -139,6 +139,16 @@ class _DicePageState extends State<DicePage> {
             ),
           ],
         );
+
+        // プレイヤー1のダイアログは逆さまにする
+        if (playerNumber == 1) {
+          return Transform.rotate(
+            angle: 3.14159,
+            child: dialog,
+          );
+        }
+
+        return dialog;
       },
     );
 
@@ -158,7 +168,7 @@ class _DicePageState extends State<DicePage> {
         builder: (BuildContext context) {
           return StatefulBuilder(
             builder: (context, setDialogState) {
-              return AlertDialog(
+              final dialog = AlertDialog(
                 title: Text('プレイヤー$playerNumber: 面$faceNumber の強化値を選択'),
                 content: SegmentedButton<int>(
                   segments: const [
@@ -182,6 +192,16 @@ class _DicePageState extends State<DicePage> {
                   ),
                 ],
               );
+
+              // プレイヤー1のダイアログは逆さまにする
+              if (playerNumber == 1) {
+                return Transform.rotate(
+                  angle: 3.14159,
+                  child: dialog,
+                );
+              }
+
+              return dialog;
             },
           );
         },
@@ -357,28 +377,31 @@ class _DicePageState extends State<DicePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          // プレイヤー1（上）
-          Expanded(
-            child: Container(
-              color: Colors.grey[200],
-              child: _buildPlayerDiceUI(1, isReversed: true),
+      body: Padding(
+        padding: const EdgeInsets.only(top: 40.0), // 上部に40pxのパディングを追加
+        child: Column(
+          children: [
+            // プレイヤー1（上）
+            Expanded(
+              child: Container(
+                color: Colors.grey[200],
+                child: _buildPlayerDiceUI(1, isReversed: true),
+              ),
             ),
-          ),
-          // 中央の区切り線
-          Container(
-            height: 2,
-            color: Colors.black54,
-          ),
-          // プレイヤー2（下・反転）
-          Expanded(
-            child: Container(
-              color: Colors.grey[100],
-              child: _buildPlayerDiceUI(2, isReversed: false),
+            // 中央の区切り線
+            Container(
+              height: 2,
+              color: Colors.black54,
             ),
-          ),
-        ],
+            // プレイヤー2（下・反転）
+            Expanded(
+              child: Container(
+                color: Colors.grey[100],
+                child: _buildPlayerDiceUI(2, isReversed: false),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
