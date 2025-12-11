@@ -23,10 +23,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// 画面中央にサイコロ（四角＋数字）を表示する StatefulWidget。
-/// タップ時に高速で数字を切り替える演出を行い、最後に確定値を表示する。
-/// ボタンで面数を切り替え可能。
-/// 強化ボタンで各面にボーナス値を追加可能。
+/// 画面を上下で分割し、各プレイヤーが独立したサイコロを操作できるWidget
 class DicePage extends StatefulWidget {
   const DicePage({super.key});
 
@@ -38,75 +35,98 @@ class _DicePageState extends State<DicePage> {
   // 許可されている面数の一覧
   static const List<int> allowedFaces = [6, 8, 10, 12, 14, 16, 20];
 
-  // 現在の面数インデックス。初期は 6 面（インデックス 0）
-  int _faceIndex = 0;
+  // プレイヤー1の状態
+  late int _player1FaceIndex;
+  late Dice _player1Dice;
+  final Map<int, int> _player1BonusHistory = {};
+  int? _player1DisplayValue;
+  bool _player1IsRolling = false;
+  final Random _player1Random = Random();
 
-  // サイコロインスタンス
-  late Dice _dice;
-
-  // 各面番号ごとの強化値を保持するマップ。面数変更後も値を引き継ぐ。
-  // キー: 面番号（1～20）、値: ボーナス値
-  final Map<int, int> _bonusHistory = {};
-
-  // 表示用の一時的な値。initState で初期化するが、念のため nullable にして
-  // ビルド時には _dice.current.value をフォールバックとして使う（LateError 回避）。
-  int? _displayValue;
-
-  // アニメーション中は連続タップを抑止するフラグ
-  bool _isRolling = false;
-
-  // ランダム生成に使用（アニメーション中の表示切替で利用）
-  final Random _random = Random();
+  // プレイヤー2の状態
+  late int _player2FaceIndex;
+  late Dice _player2Dice;
+  final Map<int, int> _player2BonusHistory = {};
+  int? _player2DisplayValue;
+  bool _player2IsRolling = false;
+  final Random _player2Random = Random();
 
   @override
   void initState() {
     super.initState();
-    _initializeDice();
+    _player1FaceIndex = 0;
+    _player2FaceIndex = 0;
+    _initializeBothDice();
   }
 
-  /// サイコロを初期化する。強化値履歴から該当する面のボーナスを復元する。
-  void _initializeDice() {
-    _dice = Dice(FaceCount(allowedFaces[_faceIndex]));
+  /// 両プレイヤーのサイコロを初期化
+  void _initializeBothDice() {
+    _initializePlayerDice(1);
+    _initializePlayerDice(2);
+  }
 
-    // 現在の面数に対応する面の強化値を履歴から復元
-    for (int faceNumber = 1; faceNumber <= allowedFaces[_faceIndex]; faceNumber++) {
-      final bonus = _bonusHistory[faceNumber] ?? 0;
-      if (bonus > 0) {
-        _dice.addBonus(faceNumber, bonus);
+  /// 指定されたプレイヤーのサイコロを初期化。強化値履歴から復元する。
+  void _initializePlayerDice(int playerNumber) {
+    if (playerNumber == 1) {
+      _player1Dice = Dice(FaceCount(allowedFaces[_player1FaceIndex]));
+      for (int faceNumber = 1; faceNumber <= allowedFaces[_player1FaceIndex]; faceNumber++) {
+        final bonus = _player1BonusHistory[faceNumber] ?? 0;
+        if (bonus > 0) {
+          _player1Dice.addBonus(faceNumber, bonus);
+        }
       }
+      _player1DisplayValue = _player1Dice.current.effectiveValue;
+    } else {
+      _player2Dice = Dice(FaceCount(allowedFaces[_player2FaceIndex]));
+      for (int faceNumber = 1; faceNumber <= allowedFaces[_player2FaceIndex]; faceNumber++) {
+        final bonus = _player2BonusHistory[faceNumber] ?? 0;
+        if (bonus > 0) {
+          _player2Dice.addBonus(faceNumber, bonus);
+        }
+      }
+      _player2DisplayValue = _player2Dice.current.effectiveValue;
     }
-
-    _displayValue = _dice.current.effectiveValue;
   }
 
-  /// 面数を増やす。リスト最後に達したら最初に戻る。最大面数（20）に達したら増やさない。
-  void _increaseFaces() {
-    // 最大面数に達していれば何もしない
-    if (_faceIndex >= allowedFaces.length - 1) {
+  /// 指定されたプレイヤーの面数を増やす
+  void _increasePlayerFaces(int playerNumber) {
+    if (playerNumber == 1) {
+      if (_player1FaceIndex >= allowedFaces.length - 1) {
+        return;
+      }
+      setState(() {
+        _player1FaceIndex = (_player1FaceIndex + 1) % allowedFaces.length;
+        _initializePlayerDice(1);
+        _player1DisplayValue = null;
+      });
+    } else {
+      if (_player2FaceIndex >= allowedFaces.length - 1) {
+        return;
+      }
+      setState(() {
+        _player2FaceIndex = (_player2FaceIndex + 1) % allowedFaces.length;
+        _initializePlayerDice(2);
+        _player2DisplayValue = null;
+      });
+    }
+  }
+
+  /// 面数変更の確認ダイアログを表示する
+  Future<void> _showFaceChangeDialog(int playerNumber) async {
+    final faceIndex = playerNumber == 1 ? _player1FaceIndex : _player2FaceIndex;
+    final maxFaces = faceIndex >= allowedFaces.length - 1;
+
+    if (maxFaces) {
       return;
     }
 
-    setState(() {
-      _faceIndex = (_faceIndex + 1) % allowedFaces.length;
-      _initializeDice();
-      _displayValue = null; // 表示値もリセット
-    });
-  }
-
-  /// 面数変更の確認ダイアログを表示する。
-  Future<void> _showFaceChangeDialog() async {
-    // 最大面数に達していれば変更不可
-    if (_faceIndex >= allowedFaces.length - 1) {
-      return;
-    }
-
-    final nextFaces = allowedFaces[(_faceIndex + 1) % allowedFaces.length];
+    final nextFaces = allowedFaces[(faceIndex + 1) % allowedFaces.length];
 
     final shouldChange = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('面数を変更しますか？'),
+          title: Text('プレイヤー$playerNumber: 面数を変更しますか？'),
           content: Text('$nextFaces 面ダイスに変更します。\n現在の強化値は引き継がれます。'),
           actions: [
             TextButton(
@@ -123,12 +143,12 @@ class _DicePageState extends State<DicePage> {
     );
 
     if (shouldChange ?? false) {
-      _increaseFaces();
+      _increasePlayerFaces(playerNumber);
     }
   }
 
-  /// 指定された面番号の強化ボーナス値を入力するダイアログを表示する。
-  Future<void> _showBonusDialog(int faceNumber) async {
+  /// 強化ボーナス値を入力するダイアログを表示する
+  Future<void> _showBonusDialog(int playerNumber, int faceNumber) async {
     int selectedBonus = 1;
 
     try {
@@ -139,7 +159,7 @@ class _DicePageState extends State<DicePage> {
           return StatefulBuilder(
             builder: (context, setDialogState) {
               return AlertDialog(
-                title: Text('面$faceNumber の強化値を選択'),
+                title: Text('プレイヤー$playerNumber: 面$faceNumber の強化値を選択'),
                 content: SegmentedButton<int>(
                   segments: const [
                     ButtonSegment(value: 1, label: Text('+1')),
@@ -171,9 +191,13 @@ class _DicePageState extends State<DicePage> {
         await Future.delayed(const Duration(milliseconds: 100));
         if (mounted) {
           setState(() {
-            _dice.addBonus(faceNumber, bonusAmount);
-            // 強化値の履歴に記録（面数変更後も引き継ぐため）
-            _bonusHistory[faceNumber] = (_bonusHistory[faceNumber] ?? 0) + bonusAmount;
+            if (playerNumber == 1) {
+              _player1Dice.addBonus(faceNumber, bonusAmount);
+              _player1BonusHistory[faceNumber] = (_player1BonusHistory[faceNumber] ?? 0) + bonusAmount;
+            } else {
+              _player2Dice.addBonus(faceNumber, bonusAmount);
+              _player2BonusHistory[faceNumber] = (_player2BonusHistory[faceNumber] ?? 0) + bonusAmount;
+            }
           });
         }
       }
@@ -182,122 +206,176 @@ class _DicePageState extends State<DicePage> {
     }
   }
 
-  // サイコロをタップしたときの処理。アニメーションを行い、最後に dice.roll() で確定する。
-  Future<void> _onTap() async {
-    if (_isRolling) return;
-    _isRolling = true;
+  /// サイコロを振る
+  Future<void> _rollDice(int playerNumber) async {
+    if (playerNumber == 1 && _player1IsRolling) return;
+    if (playerNumber == 2 && _player2IsRolling) return;
 
-    // アニメーションのフレーム数と1フレームの遅延（高速に切り替える）
+    if (playerNumber == 1) {
+      _player1IsRolling = true;
+    } else {
+      _player2IsRolling = true;
+    }
+
     const int frames = 12;
     const Duration frameDelay = Duration(milliseconds: 40);
 
-    // フレームごとにランダムな面を表示して「振っている」演出にする。
+    // アニメーション
     for (int i = 0; i < frames; i++) {
       setState(() {
-        _displayValue =
-            _dice.faces[_random.nextInt(_dice.faces.length)].effectiveValue;
+        if (playerNumber == 1) {
+          _player1DisplayValue =
+              _player1Dice.faces[_player1Random.nextInt(_player1Dice.faces.length)].effectiveValue;
+        } else {
+          _player2DisplayValue =
+              _player2Dice.faces[_player2Random.nextInt(_player2Dice.faces.length)].effectiveValue;
+        }
       });
       await Future.delayed(frameDelay);
     }
 
-    // 最終的に dice.roll() を呼んで current を更新し、表示を確定する。
-    final result = _dice.roll();
+    // 確定
     setState(() {
-      _displayValue = result;
+      if (playerNumber == 1) {
+        _player1DisplayValue = _player1Dice.roll();
+      } else {
+        _player2DisplayValue = _player2Dice.roll();
+      }
     });
 
-    // 短い余韻（任意）。不要ならコメントアウト可。
     await Future.delayed(const Duration(milliseconds: 80));
 
-    _isRolling = false;
+    if (playerNumber == 1) {
+      _player1IsRolling = false;
+    } else {
+      _player2IsRolling = false;
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final size = 160.0;
-    final currentFaces = allowedFaces[_faceIndex];
-    final isMaxFaces = _faceIndex >= allowedFaces.length - 1;
+  /// プレイヤーのサイコロUIを構築
+  Widget _buildPlayerDiceUI(int playerNumber, {bool isReversed = false}) {
+    final faceIndex = playerNumber == 1 ? _player1FaceIndex : _player2FaceIndex;
+    final displayValue = playerNumber == 1 ? _player1DisplayValue : _player2DisplayValue;
+    final dice = playerNumber == 1 ? _player1Dice : _player2Dice;
+    final currentFaces = allowedFaces[faceIndex];
+    final isMaxFaces = faceIndex >= allowedFaces.length - 1;
+    final size = 140.0;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('サイコロ'),
-      ),
-      body: Column(
-        children: [
-          // 上部：面数表示
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Text(
-              '$currentFaces 面ダイス',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
+    final column = Column(
+      children: [
+        // 面数表示
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            '$currentFaces 面ダイス',
+            style: Theme.of(context).textTheme.headlineSmall,
           ),
-          // 中央：サイコロ本体
-          Expanded(
-            child: Center(
-              child: GestureDetector(
-                onTap: _onTap,
-                // 四角形でサイコロを表現。中央に大きく出目を表示。
-                child: Container(
-                  width: size,
-                  height: size,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 155, 69, 69),
-                    border: Border.all(color: Colors.black87, width: 2),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 4,
-                        offset: Offset(2, 2),
-                      )
-                    ],
-                  ),
-                  child: Text(
-                    '${_displayValue ?? _dice.current.effectiveValue}',
-                    semanticsLabel: '現在の出目',
-                    style: TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
+        ),
+        // サイコロ本体
+        Expanded(
+          child: Center(
+            child: GestureDetector(
+              onTap: () => _rollDice(playerNumber),
+              child: Container(
+                width: size,
+                height: size,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color.fromARGB(255, 155, 69, 69),
+                  border: Border.all(color: Colors.black87, width: 2),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 4,
+                      offset: Offset(2, 2),
+                    )
+                  ],
+                ),
+                child: Text(
+                  '${displayValue ?? dice.current.effectiveValue}',
+                  style: TextStyle(
+                    fontSize: 44,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
             ),
           ),
-          // 強化ボタン群
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Wrap(
-              spacing: 4,
-              children: List.generate(
-                currentFaces,
-                (index) {
-                  final faceNumber = index + 1;
-                  final bonus = _dice.getBonus(faceNumber);
-                  return ElevatedButton(
-                    key: ValueKey('bonus_button_$faceNumber'),
-                    onPressed: () => _showBonusDialog(faceNumber),
-                    child: Text(
-                      bonus > 0 ? '[$faceNumber]+$bonus' : '[$faceNumber]',
-                    ),
-                  );
-                },
-              ),
+        ),
+        // 強化ボタン群
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Wrap(
+            spacing: 3,
+            children: List.generate(
+              currentFaces,
+              (index) {
+                final faceNumber = index + 1;
+                final bonus = playerNumber == 1
+                    ? _player1Dice.getBonus(faceNumber)
+                    : _player2Dice.getBonus(faceNumber);
+                return ElevatedButton(
+                  key: ValueKey('player${playerNumber}_bonus_button_$faceNumber'),
+                  onPressed: () => _showBonusDialog(playerNumber, faceNumber),
+                  child: Text(
+                    bonus > 0 ? '[$faceNumber]+$bonus' : '[$faceNumber]',
+                  ),
+                );
+              },
             ),
           ),
-          // 下部：面数変更ボタン（最大面数に達したら非活性）
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: ElevatedButton(
-              onPressed: isMaxFaces ? null : _showFaceChangeDialog,
-              child: Text(
-                isMaxFaces
-                    ? '最大面数に到達しました'
-                    : '面数を変更 → ${allowedFaces[(_faceIndex + 1) % allowedFaces.length]}面',
-              ),
+        ),
+        // 面数変更ボタン
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: ElevatedButton(
+            onPressed: isMaxFaces ? null : () => _showFaceChangeDialog(playerNumber),
+            child: Text(
+              isMaxFaces
+                  ? '最大面数'
+                  : '→ ${allowedFaces[(faceIndex + 1) % allowedFaces.length]}面',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    // 上下反転が必要な場合
+    if (isReversed) {
+      return Transform.rotate(
+        angle: 3.14159, // 180度回転
+        child: column,
+      );
+    }
+
+    return column;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          // プレイヤー1（上）
+          Expanded(
+            child: Container(
+              color: Colors.grey[200],
+              child: _buildPlayerDiceUI(1, isReversed: true),
+            ),
+          ),
+          // 中央の区切り線
+          Container(
+            height: 2,
+            color: Colors.black54,
+          ),
+          // プレイヤー2（下・反転）
+          Expanded(
+            child: Container(
+              color: Colors.grey[100],
+              child: _buildPlayerDiceUI(2, isReversed: false),
             ),
           ),
         ],
