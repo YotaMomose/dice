@@ -5,11 +5,6 @@ import 'dice.dart';
 /// プレイヤーの状態と操作を管理するクラス。
 /// サイコロの面数、強化値、出目などを一元管理する。
 class Player {
-  /// 許可されている面数の一覧
-  static const List<int> allowedFaces = [6, 8, 10, 12, 14, 16, 20];
-
-  /// 現在の面数インデックス
-  int faceIndex = 0;
 
   /// サイコロインスタンス
   late Dice dice;
@@ -33,10 +28,10 @@ class Player {
   }
 
   /// 現在の面数を取得
-  int get currentFaces => allowedFaces[faceIndex];
+  int get currentFaces => dice.faceCount.value;
 
   /// 最大面数に達しているかを判定
-  bool get isMaxFaces => faceIndex >= allowedFaces.length - 1;
+  bool get isMaxFaces => dice.faceCount.isMax;
 
   /// サイコロを初期化。強化値履歴から復元。
   void _initializeDice() {
@@ -58,8 +53,6 @@ class Player {
     if (isMaxFaces) {
       return;
     }
-
-    faceIndex = (faceIndex + 1) % allowedFaces.length;
     _initializeDice();
     displayValue = null;
   }
@@ -83,6 +76,6 @@ class Player {
 
   /// 次の面数値を取得
   int getNextFaces() {
-    return allowedFaces[(faceIndex + 1) % allowedFaces.length];
+    return dice.faceCount.getNext().value;
   }
 }

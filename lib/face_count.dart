@@ -43,6 +43,10 @@ class FaceCount {
     return next?.value;
   }
 
+  /// 最大面数に達しているかを判定
+  /// 20面の場合に true を返す
+  bool get isMax => value == allowedList.last;
+  
   @override
   String toString() => 'FaceCount($value)';
 }
