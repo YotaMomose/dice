@@ -15,9 +15,7 @@ class FaceValue {
   int get effectiveValue => baseValue + bonusValue;
 
   /// コンストラクタ。baseValue は範囲外なら RangeError を投げる。
-  FaceValue(int baseValue, FaceCount faceCount, {int bonusValue = 0})
-      : baseValue = baseValue,
-        bonusValue = bonusValue {
+  FaceValue(this.baseValue, FaceCount faceCount, {this.bonusValue = 0}) {
     if (baseValue < 1 || baseValue > faceCount.value) {
       throw RangeError.range(baseValue, 1, faceCount.value, 'baseValue',
           'FaceValue baseValue must be in range 1..${faceCount.value}');

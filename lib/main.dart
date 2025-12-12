@@ -1,7 +1,5 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'face_count.dart';
-import 'dice.dart';
+import 'player.dart';
 
 void main() {
   runApp(const MyApp());
@@ -32,95 +30,31 @@ class DicePage extends StatefulWidget {
 }
 
 class _DicePageState extends State<DicePage> {
-  // 許可されている面数の一覧
-  static const List<int> allowedFaces = [6, 8, 10, 12, 14, 16, 20];
-
-  // プレイヤー1の状態
-  late int _player1FaceIndex;
-  late Dice _player1Dice;
-  final Map<int, int> _player1BonusHistory = {};
-  int? _player1DisplayValue;
-  bool _player1IsRolling = false;
-  final Random _player1Random = Random();
-
-  // プレイヤー2の状態
-  late int _player2FaceIndex;
-  late Dice _player2Dice;
-  final Map<int, int> _player2BonusHistory = {};
-  int? _player2DisplayValue;
-  bool _player2IsRolling = false;
-  final Random _player2Random = Random();
+  // プレイヤーのインスタンス
+  late Player _player1;
+  late Player _player2;
 
   @override
   void initState() {
     super.initState();
-    _player1FaceIndex = 0;
-    _player2FaceIndex = 0;
-    _initializeBothDice();
-  }
-
-  /// 両プレイヤーのサイコロを初期化
-  void _initializeBothDice() {
-    _initializePlayerDice(1);
-    _initializePlayerDice(2);
-  }
-
-  /// 指定されたプレイヤーのサイコロを初期化。強化値履歴から復元する。
-  void _initializePlayerDice(int playerNumber) {
-    if (playerNumber == 1) {
-      _player1Dice = Dice(FaceCount(allowedFaces[_player1FaceIndex]));
-      for (int faceNumber = 1; faceNumber <= allowedFaces[_player1FaceIndex]; faceNumber++) {
-        final bonus = _player1BonusHistory[faceNumber] ?? 0;
-        if (bonus > 0) {
-          _player1Dice.addBonus(faceNumber, bonus);
-        }
-      }
-      _player1DisplayValue = _player1Dice.current.effectiveValue;
-    } else {
-      _player2Dice = Dice(FaceCount(allowedFaces[_player2FaceIndex]));
-      for (int faceNumber = 1; faceNumber <= allowedFaces[_player2FaceIndex]; faceNumber++) {
-        final bonus = _player2BonusHistory[faceNumber] ?? 0;
-        if (bonus > 0) {
-          _player2Dice.addBonus(faceNumber, bonus);
-        }
-      }
-      _player2DisplayValue = _player2Dice.current.effectiveValue;
-    }
+    _player1 = Player();
+    _player2 = Player();
   }
 
   /// 指定されたプレイヤーの面数を増やす
-  void _increasePlayerFaces(int playerNumber) {
-    if (playerNumber == 1) {
-      if (_player1FaceIndex >= allowedFaces.length - 1) {
-        return;
-      }
-      setState(() {
-        _player1FaceIndex = (_player1FaceIndex + 1) % allowedFaces.length;
-        _initializePlayerDice(1);
-        _player1DisplayValue = null;
-      });
-    } else {
-      if (_player2FaceIndex >= allowedFaces.length - 1) {
-        return;
-      }
-      setState(() {
-        _player2FaceIndex = (_player2FaceIndex + 1) % allowedFaces.length;
-        _initializePlayerDice(2);
-        _player2DisplayValue = null;
-      });
-    }
+  void _increasePlayerFaces(Player player) {
+    setState(() {
+      player.increaseFaces();
+    });
   }
 
   /// 面数変更の確認ダイアログを表示する
-  Future<void> _showFaceChangeDialog(int playerNumber) async {
-    final faceIndex = playerNumber == 1 ? _player1FaceIndex : _player2FaceIndex;
-    final maxFaces = faceIndex >= allowedFaces.length - 1;
-
-    if (maxFaces) {
+  Future<void> _showFaceChangeDialog(Player player, int playerNumber) async {
+    if (player.isMaxFaces) {
       return;
     }
 
-    final nextFaces = allowedFaces[(faceIndex + 1) % allowedFaces.length];
+    final nextFaces = player.getNextFaces();
 
     final shouldChange = await showDialog<bool>(
       context: context,
@@ -153,12 +87,12 @@ class _DicePageState extends State<DicePage> {
     );
 
     if (shouldChange ?? false) {
-      _increasePlayerFaces(playerNumber);
+      _increasePlayerFaces(player);
     }
   }
 
   /// 強化ボーナス値を入力するダイアログを表示する
-  Future<void> _showBonusDialog(int playerNumber, int faceNumber) async {
+  Future<void> _showBonusDialog(Player player, int playerNumber, int faceNumber) async {
     int selectedBonus = 1;
 
     try {
@@ -211,13 +145,7 @@ class _DicePageState extends State<DicePage> {
         await Future.delayed(const Duration(milliseconds: 100));
         if (mounted) {
           setState(() {
-            if (playerNumber == 1) {
-              _player1Dice.addBonus(faceNumber, bonusAmount);
-              _player1BonusHistory[faceNumber] = (_player1BonusHistory[faceNumber] ?? 0) + bonusAmount;
-            } else {
-              _player2Dice.addBonus(faceNumber, bonusAmount);
-              _player2BonusHistory[faceNumber] = (_player2BonusHistory[faceNumber] ?? 0) + bonusAmount;
-            }
+            player.addBonus(faceNumber, bonusAmount);
           });
         }
       }
@@ -227,15 +155,9 @@ class _DicePageState extends State<DicePage> {
   }
 
   /// サイコロを振る
-  Future<void> _rollDice(int playerNumber) async {
-    if (playerNumber == 1 && _player1IsRolling) return;
-    if (playerNumber == 2 && _player2IsRolling) return;
-
-    if (playerNumber == 1) {
-      _player1IsRolling = true;
-    } else {
-      _player2IsRolling = true;
-    }
+  Future<void> _rollDice(Player player) async {
+    if (player.isRolling) return;
+    player.isRolling = true;
 
     const int frames = 12;
     const Duration frameDelay = Duration(milliseconds: 40);
@@ -243,42 +165,24 @@ class _DicePageState extends State<DicePage> {
     // アニメーション
     for (int i = 0; i < frames; i++) {
       setState(() {
-        if (playerNumber == 1) {
-          _player1DisplayValue =
-              _player1Dice.faces[_player1Random.nextInt(_player1Dice.faces.length)].effectiveValue;
-        } else {
-          _player2DisplayValue =
-              _player2Dice.faces[_player2Random.nextInt(_player2Dice.faces.length)].effectiveValue;
-        }
+        player.displayValue =
+            player.dice.faces[player.random.nextInt(player.dice.faces.length)].effectiveValue;
       });
       await Future.delayed(frameDelay);
     }
 
     // 確定
     setState(() {
-      if (playerNumber == 1) {
-        _player1DisplayValue = _player1Dice.roll();
-      } else {
-        _player2DisplayValue = _player2Dice.roll();
-      }
+      player.roll();
     });
 
     await Future.delayed(const Duration(milliseconds: 80));
 
-    if (playerNumber == 1) {
-      _player1IsRolling = false;
-    } else {
-      _player2IsRolling = false;
-    }
+    player.isRolling = false;
   }
 
   /// プレイヤーのサイコロUIを構築
-  Widget _buildPlayerDiceUI(int playerNumber, {bool isReversed = false}) {
-    final faceIndex = playerNumber == 1 ? _player1FaceIndex : _player2FaceIndex;
-    final displayValue = playerNumber == 1 ? _player1DisplayValue : _player2DisplayValue;
-    final dice = playerNumber == 1 ? _player1Dice : _player2Dice;
-    final currentFaces = allowedFaces[faceIndex];
-    final isMaxFaces = faceIndex >= allowedFaces.length - 1;
+  Widget _buildPlayerDiceUI(Player player, int playerNumber, {bool isReversed = false}) {
     final size = 140.0;
 
     final column = Column(
@@ -287,7 +191,7 @@ class _DicePageState extends State<DicePage> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Text(
-            '$currentFaces 面ダイス',
+            '${player.currentFaces} 面ダイス',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
         ),
@@ -295,7 +199,7 @@ class _DicePageState extends State<DicePage> {
         Expanded(
           child: Center(
             child: GestureDetector(
-              onTap: () => _rollDice(playerNumber),
+              onTap: () => _rollDice(player),
               child: Container(
                 width: size,
                 height: size,
@@ -313,7 +217,7 @@ class _DicePageState extends State<DicePage> {
                   ],
                 ),
                 child: Text(
-                  '${displayValue ?? dice.current.effectiveValue}',
+                  '${player.displayValue ?? player.dice.current.effectiveValue}',
                   style: TextStyle(
                     fontSize: 44,
                     fontWeight: FontWeight.bold,
@@ -330,15 +234,13 @@ class _DicePageState extends State<DicePage> {
           child: Wrap(
             spacing: 3,
             children: List.generate(
-              currentFaces,
+              player.currentFaces,
               (index) {
                 final faceNumber = index + 1;
-                final bonus = playerNumber == 1
-                    ? _player1Dice.getBonus(faceNumber)
-                    : _player2Dice.getBonus(faceNumber);
+                final bonus = player.getBonus(faceNumber);
                 return ElevatedButton(
                   key: ValueKey('player${playerNumber}_bonus_button_$faceNumber'),
-                  onPressed: () => _showBonusDialog(playerNumber, faceNumber),
+                  onPressed: () => _showBonusDialog(player, playerNumber, faceNumber),
                   child: Text(
                     bonus > 0 ? '[$faceNumber]+$bonus' : '[$faceNumber]',
                   ),
@@ -351,11 +253,11 @@ class _DicePageState extends State<DicePage> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: ElevatedButton(
-            onPressed: isMaxFaces ? null : () => _showFaceChangeDialog(playerNumber),
+            onPressed: player.isMaxFaces ? null : () => _showFaceChangeDialog(player, playerNumber),
             child: Text(
-              isMaxFaces
+              player.isMaxFaces
                   ? '最大面数'
-                  : '→ ${allowedFaces[(faceIndex + 1) % allowedFaces.length]}面',
+                  : '→ ${player.getNextFaces()}面',
               style: const TextStyle(fontSize: 12),
             ),
           ),
@@ -366,7 +268,7 @@ class _DicePageState extends State<DicePage> {
     // 上下反転が必要な場合
     if (isReversed) {
       return Transform.rotate(
-        angle: 3.14159, // 180度回転
+        angle: 3.14159,
         child: column,
       );
     }
@@ -378,14 +280,14 @@ class _DicePageState extends State<DicePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Padding(
-        padding: const EdgeInsets.only(top: 40.0), // 上部に40pxのパディングを追加
+        padding: const EdgeInsets.only(top: 40.0),
         child: Column(
           children: [
             // プレイヤー1（上）
             Expanded(
               child: Container(
                 color: Colors.grey[200],
-                child: _buildPlayerDiceUI(1, isReversed: true),
+                child: _buildPlayerDiceUI(_player1, 1, isReversed: true),
               ),
             ),
             // 中央の区切り線
@@ -393,11 +295,11 @@ class _DicePageState extends State<DicePage> {
               height: 2,
               color: Colors.black54,
             ),
-            // プレイヤー2（下・反転）
+            // プレイヤー2（下）
             Expanded(
               child: Container(
                 color: Colors.grey[100],
-                child: _buildPlayerDiceUI(2, isReversed: false),
+                child: _buildPlayerDiceUI(_player2, 2, isReversed: false),
               ),
             ),
           ],
