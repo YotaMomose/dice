@@ -28,7 +28,8 @@ class Player {
 
   /// コンストラクタ。初期状態で6面ダイスを生成。
   Player() {
-    _initializeDice();
+    dice = Dice(FaceCount(6));
+    displayValue = dice.current.effectiveValue;
   }
 
   /// 現在の面数を取得
@@ -39,7 +40,7 @@ class Player {
 
   /// サイコロを初期化。強化値履歴から復元。
   void _initializeDice() {
-    dice = Dice(FaceCount(allowedFaces[faceIndex]));
+    dice = Dice(dice.faceCount.getNext());
 
     // 強化値履歴から該当する面のボーナスを復元
     for (int faceNumber = 1; faceNumber <= currentFaces; faceNumber++) {
