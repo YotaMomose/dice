@@ -9,9 +9,6 @@ class Player {
   /// サイコロインスタンス
   late Dice dice;
 
-  /// 各面番号ごとの強化値履歴（面数変更後も引き継ぐため）
-  final Map<int, int> bonusHistory = {};
-
   /// 表示用の出目値（アニメーション中の表示用）
   int? displayValue;
 
@@ -33,27 +30,10 @@ class Player {
   /// 最大面数に達しているかを判定
   bool get isMaxFaces => dice.faceCount.isMax;
 
-  /// サイコロを初期化。強化値履歴から復元。
-  void _initializeDice() {
-    dice = Dice(dice.faceCount.getNext());
-
-    // 強化値履歴から該当する面のボーナスを復元
-    for (int faceNumber = 1; faceNumber <= currentFaces; faceNumber++) {
-      final bonus = bonusHistory[faceNumber] ?? 0;
-      if (bonus > 0) {
-        dice.addBonus(faceNumber, bonus);
-      }
-    }
-
-    displayValue = dice.current.effectiveValue;
-  }
 
   /// 面数を増やす（最大面数なら何もしない）
   void increaseFaces() {
-    if (isMaxFaces) {
-      return;
-    }
-    _initializeDice();
+    dice = dice.increaseFaceCount();
     displayValue = null;
   }
 
@@ -66,7 +46,6 @@ class Player {
   /// 指定された面にボーナスを追加
   void addBonus(int faceNumber, int bonusAmount) {
     dice.addBonus(faceNumber, bonusAmount);
-    bonusHistory[faceNumber] = (bonusHistory[faceNumber] ?? 0) + bonusAmount;
   }
 
   /// 指定された面のボーナス値を取得

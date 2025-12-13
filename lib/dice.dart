@@ -50,4 +50,25 @@ class Dice {
     }
     return faces[faceNumber - 1].bonusValue;
   }
+
+
+  /// 面数を増やす（次の FaceCount に変更）
+  /// 強化値を引き継ぐ
+  Dice increaseFaceCount() {
+    if (faceCount.isMax) {
+      throw StateError('これ以上面数を増やすことはできません： ${faceCount.value}');
+    }
+    final nextFaceCount = faceCount.getNext();
+    final newDice = Dice(nextFaceCount, random: _random);
+
+    // 強化値を引き継ぐ
+    for (int i = 0; i < faceCount.value; i++) {
+      final bonus = faces[i].bonusValue;
+      if (bonus > 0) {
+        newDice.addBonus(i + 1, bonus);
+      }
+    }
+
+    return newDice;
+  }
 }

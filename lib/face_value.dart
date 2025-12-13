@@ -18,11 +18,11 @@ class FaceValue {
   FaceValue(this.baseValue, FaceCount faceCount, {this.bonusValue = 0}) {
     if (baseValue < 1 || baseValue > faceCount.value) {
       throw RangeError.range(baseValue, 1, faceCount.value, 'baseValue',
-          'FaceValue baseValue must be in range 1..${faceCount.value}');
+          '出目は1～${faceCount.value}でなければなりません');
     }
     if (bonusValue < 0) {
       throw ArgumentError.value(
-          bonusValue, 'bonusValue', 'bonusValue must be non-negative');
+          bonusValue, 'bonusValue', '強化値は0以上でなければなりません');
     }
   }
 
