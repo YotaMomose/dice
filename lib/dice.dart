@@ -1,4 +1,7 @@
 import 'dart:math';
+import 'dart:ui';
+import 'package:flutter/material.dart';
+
 import 'face_count.dart';
 import 'face_value.dart';
 
@@ -70,5 +73,18 @@ class Dice {
     }
 
     return newDice;
+  }
+
+  /// サイコロの色を取得
+  /// playerId によって色を変える
+  Color getColor(int playerId) {
+    switch (playerId) {
+      case 1:
+        return const Color.fromARGB(255, 240, 170, 211); 
+      case 2:
+        return const Color.fromARGB(255, 121, 173, 134); 
+      default:
+        return Colors.grey; // デフォルト
+    }
   }
 }

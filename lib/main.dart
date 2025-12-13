@@ -205,7 +205,7 @@ class _DicePageState extends State<DicePage> {
                 height: size,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: const Color.fromARGB(255, 155, 69, 69),
+                  color: player.dice.getColor(player.id),
                   border: Border.all(color: Colors.black87, width: 2),
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: const [
