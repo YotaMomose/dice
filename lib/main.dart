@@ -37,8 +37,8 @@ class _DicePageState extends State<DicePage> {
   @override
   void initState() {
     super.initState();
-    _player1 = Player();
-    _player2 = Player();
+    _player1 = Player(1); // 上部プレイヤー
+    _player2 = Player(2); // 下部プレイヤー
   }
 
   /// 指定されたプレイヤーの面数を増やす
@@ -49,7 +49,7 @@ class _DicePageState extends State<DicePage> {
   }
 
   /// 面数変更の確認ダイアログを表示する
-  Future<void> _showFaceChangeDialog(Player player, int playerNumber) async {
+  Future<void> _showFaceChangeDialog(Player player) async {
     if (player.isMaxFaces) {
       return;
     }
@@ -60,7 +60,7 @@ class _DicePageState extends State<DicePage> {
       context: context,
       builder: (BuildContext context) {
         final dialog = AlertDialog(
-          title: Text('プレイヤー$playerNumber: 面数を変更しますか？'),
+          title: Text('プレイヤー${player.id}: 面数を変更しますか？'),
           content: Text('$nextFaces 面ダイスに変更します。\n現在の強化値は引き継がれます。'),
           actions: [
             TextButton(
@@ -75,7 +75,7 @@ class _DicePageState extends State<DicePage> {
         );
 
         // プレイヤー1のダイアログは逆さまにする
-        if (playerNumber == 1) {
+        if (player.id == 1) {
           return Transform.rotate(
             angle: 3.14159,
             child: dialog,
@@ -92,7 +92,7 @@ class _DicePageState extends State<DicePage> {
   }
 
   /// 強化ボーナス値を入力するダイアログを表示する
-  Future<void> _showBonusDialog(Player player, int playerNumber, int faceNumber) async {
+  Future<void> _showBonusDialog(Player player, int faceNumber) async {
     int selectedBonus = 1;
 
     try {
@@ -103,7 +103,7 @@ class _DicePageState extends State<DicePage> {
           return StatefulBuilder(
             builder: (context, setDialogState) {
               final dialog = AlertDialog(
-                title: Text('プレイヤー$playerNumber: 面$faceNumber の強化値を選択'),
+                title: Text('プレイヤー${player.id}: 面$faceNumber の強化値を選択'),
                 content: SegmentedButton<int>(
                   segments: const [
                     ButtonSegment(value: 1, label: Text('+1')),
@@ -128,7 +128,7 @@ class _DicePageState extends State<DicePage> {
               );
 
               // プレイヤー1のダイアログは逆さまにする
-              if (playerNumber == 1) {
+              if (player.id == 1) {
                 return Transform.rotate(
                   angle: 3.14159,
                   child: dialog,
@@ -182,7 +182,7 @@ class _DicePageState extends State<DicePage> {
   }
 
   /// プレイヤーのサイコロUIを構築
-  Widget _buildPlayerDiceUI(Player player, int playerNumber, {bool isReversed = false}) {
+  Widget _buildPlayerDiceUI(Player player, {bool isReversed = false}) {
     final size = 140.0;
 
     final column = Column(
@@ -239,8 +239,8 @@ class _DicePageState extends State<DicePage> {
                 final faceNumber = index + 1;
                 final bonus = player.getBonus(faceNumber);
                 return ElevatedButton(
-                  key: ValueKey('player${playerNumber}_bonus_button_$faceNumber'),
-                  onPressed: () => _showBonusDialog(player, playerNumber, faceNumber),
+                  key: ValueKey('player${player.id}_bonus_button_$faceNumber'),
+                  onPressed: () => _showBonusDialog(player, faceNumber),
                   child: Text(
                     bonus > 0 ? '[$faceNumber]+$bonus' : '[$faceNumber]',
                   ),
@@ -253,7 +253,7 @@ class _DicePageState extends State<DicePage> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: ElevatedButton(
-            onPressed: player.isMaxFaces ? null : () => _showFaceChangeDialog(player, playerNumber),
+            onPressed: player.isMaxFaces ? null : () => _showFaceChangeDialog(player),
             child: Text(
               player.isMaxFaces
                   ? '最大面数'
@@ -276,6 +276,7 @@ class _DicePageState extends State<DicePage> {
     return column;
   }
 
+  // メインのビルドメソッド（画面を作っている）
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -286,8 +287,8 @@ class _DicePageState extends State<DicePage> {
             // プレイヤー1（上）
             Expanded(
               child: Container(
-                color: Colors.grey[200],
-                child: _buildPlayerDiceUI(_player1, 1, isReversed: true),
+                color: const Color.fromARGB(255, 121, 173, 134),
+                child: _buildPlayerDiceUI(_player1, isReversed: true),
               ),
             ),
             // 中央の区切り線
@@ -298,8 +299,8 @@ class _DicePageState extends State<DicePage> {
             // プレイヤー2（下）
             Expanded(
               child: Container(
-                color: Colors.grey[100],
-                child: _buildPlayerDiceUI(_player2, 2, isReversed: false),
+                color: const Color.fromARGB(255, 240, 170, 211),
+                child: _buildPlayerDiceUI(_player2, isReversed: false),
               ),
             ),
           ],

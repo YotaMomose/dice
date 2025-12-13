@@ -6,6 +6,9 @@ import 'dice.dart';
 /// サイコロの面数、強化値、出目などを一元管理する。
 class Player {
 
+  /// プレイヤーのID（1または2）
+  final int id;
+
   /// サイコロインスタンス
   late Dice dice;
 
@@ -19,7 +22,7 @@ class Player {
   final Random random = Random();
 
   /// コンストラクタ。初期状態で6面ダイスを生成。
-  Player() {
+  Player(this.id) {
     dice = Dice(FaceCount(6));
     displayValue = dice.current.effectiveValue;
   }
