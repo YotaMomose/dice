@@ -20,10 +20,6 @@ class FaceValue {
       throw RangeError.range(baseValue, 1, faceCount.value, 'baseValue',
           '出目は1～${faceCount.value}でなければなりません');
     }
-    if (bonusValue < 0) {
-      throw ArgumentError.value(
-          bonusValue, 'bonusValue', '強化値は0以上でなければなりません');
-    }
   }
 
   @override

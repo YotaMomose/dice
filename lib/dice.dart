@@ -40,10 +40,22 @@ class Dice {
     if (faceNumber < 1 || faceNumber > faceCount.value) {
       throw RangeError.range(faceNumber, 1, faceCount.value, 'faceNumber');
     }
+    faces[faceNumber - 1].bonusValue += bonusAmount;
+  }
+
+  /// 指定された面番号のボーナス値を減らす。
+  /// effectiveValueが0未満にならないように制限される。
+  void removeBonus(int faceNumber, int bonusAmount) {
+    if (faceNumber < 1 || faceNumber > faceCount.value) {
+      throw RangeError.range(faceNumber, 1, faceCount.value, 'faceNumber');
+    }
     if (bonusAmount < 0) {
       throw ArgumentError.value(bonusAmount, 'bonusAmount', 'must be non-negative');
     }
-    faces[faceNumber - 1].bonusValue += bonusAmount;
+    final face = faces[faceNumber - 1];
+    // effectiveValueが0未満にならないように制限
+    final minBonus = -face.baseValue;
+    face.bonusValue = (face.bonusValue - bonusAmount).clamp(minBonus, face.bonusValue);
   }
 
   /// 指定された面番号のボーナス値を取得する。
@@ -67,7 +79,7 @@ class Dice {
     // 強化値を引き継ぐ
     for (int i = 0; i < faceCount.value; i++) {
       final bonus = faces[i].bonusValue;
-      if (bonus > 0) {
+      if (bonus != 0) {
         newDice.addBonus(i + 1, bonus);
       }
     }

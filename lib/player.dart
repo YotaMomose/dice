@@ -51,6 +51,11 @@ class Player {
     dice.addBonus(faceNumber, bonusAmount);
   }
 
+  /// 指定された面のボーナスを減らす
+  void removeBonus(int faceNumber, int bonusAmount) {
+    dice.removeBonus(faceNumber, bonusAmount);
+  }
+
   /// 指定された面のボーナス値を取得
   int getBonus(int faceNumber) {
     return dice.getBonus(faceNumber);

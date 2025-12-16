@@ -105,10 +105,14 @@ class _DicePageState extends State<DicePage> {
               final dialog = AlertDialog(
                 title: Text('プレイヤー${player.id}: 面$faceNumber の強化値を選択'),
                 content: SegmentedButton<int>(
-                  segments: const [
-                    ButtonSegment(value: 1, label: Text('+1')),
-                    ButtonSegment(value: 2, label: Text('+2')),
-                    ButtonSegment(value: 3, label: Text('+3')),
+                  segments: [
+                    const ButtonSegment(value: 1, label: Text('+1')),
+                    const ButtonSegment(value: 2, label: Text('+2')),
+                    ButtonSegment(
+                      value: -1,
+                      label: const Text('-1'),
+                      enabled: player.dice.faces[faceNumber - 1].effectiveValue > 0,
+                    ),
                   ],
                   selected: {selectedBonus},
                   onSelectionChanged: (Set<int> newSelection) {
@@ -145,7 +149,11 @@ class _DicePageState extends State<DicePage> {
         await Future.delayed(const Duration(milliseconds: 100));
         if (mounted) {
           setState(() {
-            player.addBonus(faceNumber, bonusAmount);
+            if (bonusAmount > 0) {
+              player.addBonus(faceNumber, bonusAmount);
+            } else {
+              player.removeBonus(faceNumber, bonusAmount.abs());
+            }
           });
         }
       }
@@ -205,7 +213,7 @@ class _DicePageState extends State<DicePage> {
                 height: size,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: player.dice.getColor(player.id),
+                  color: player.dice.getColor(player.id), // プレイヤーごとの色
                   border: Border.all(color: Colors.black87, width: 2),
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: const [
@@ -228,7 +236,7 @@ class _DicePageState extends State<DicePage> {
             ),
           ),
         ),
-        // 強化ボタン群
+        // 出目強化ボタン群
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Wrap(
@@ -242,7 +250,7 @@ class _DicePageState extends State<DicePage> {
                   key: ValueKey('player${player.id}_bonus_button_$faceNumber'),
                   onPressed: () => _showBonusDialog(player, faceNumber),
                   child: Text(
-                    bonus > 0 ? '[$faceNumber]+$bonus' : '[$faceNumber]',
+                    bonus != 0 ? '[$faceNumber]${bonus > 0 ? '+' : ''}$bonus' : '[$faceNumber]',
                   ),
                 );
               },
